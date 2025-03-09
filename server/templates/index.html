@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Patient Monitoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+<body>
+    <div class="container">
+        <h1>Patient Monitoring System</h1>
+        <div class="patient-info">
+            <h2>Patient Name: John Doe</h2>
+            <h3>Age: 30</h3>
+        </div>
+
+        <h3>Live Health Graphs</h3>
+        <div class="graph-container">
+            <img id="graph" src="/graph" width="600">
+        </div>
+    </div>
+
+    <script>
+        function updateGraph() {
+            document.getElementById("graph").src = "/graph?" + new Date().getTime();
+        }
+        setInterval(updateGraph, 2000); // Refresh graph every 2 seconds
+    </script>
+</body>
+</html>

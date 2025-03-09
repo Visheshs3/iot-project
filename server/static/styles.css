@@ -1,0 +1,58 @@
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+}
+
+/* Headings */
+h1, h2, h3 {
+    color: #ffffff;
+    margin-bottom: 10px;
+}
+
+/* Graph Styling */
+img {
+    width: 80%;
+    max-width: 800px;
+    border-radius: 10px;
+    border: 2px solid #bb86fc;
+    box-shadow: 0px 0px 10px rgba(187, 134, 252, 0.8);
+    margin-top: 20px;
+}
+
+/* Container for content */
+.container {
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+    max-width: 800px;
+    margin: auto;
+}
+
+/* Button Styling */
+button {
+    background: #bb86fc;
+    color: #121212;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #9a67ea;
+}
+
+/* Auto-refresh text */
+#refresh-text {
+    font-size: 14px;
+    color: #bb86fc;
+    margin-top: 10px;
+}
