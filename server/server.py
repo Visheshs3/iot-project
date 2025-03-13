@@ -1,16 +1,25 @@
 import matplotlib
 matplotlib.use('Agg')  # Use non-GUI backend to prevent threading issues
-
-from flask import Flask, render_template, send_file, make_response, request, redirect, url_for
+from pymongo import MongoClient
+from flask import Flask, render_template, send_file, make_response, request, redirect, url_for, jsonify
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from twilio.rest import Client
+
+
 
 app = Flask(__name__)
 
 # Ensure the 'static' directory exists
 if not os.path.exists("static"):
     os.makedirs("static")
+
+client = MongoClient("mongodb+srv://visheshsinghal613:@cluster0.2qzfd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+
+db = client["iot_project"]
+collection = db["patients"]
+# print(collection.find_one({"name" : "chaitanya" }))
 
 # Store last 15 values (initial values)
 spo2_values = list(95 + np.random.normal(0, 1, 15))  # Blood Oxygen Levels
@@ -77,8 +86,14 @@ def home():
 def login():
     username = request.form['username']
     password = request.form['password']
+    test_data = collection.find_one({"name" : username})
+    if test_data:
+        if test_data["password"] == password:
+            return redirect(url_for('patient'))
+        else:
+            return redirect(url_for('home', error="Invalid credentials"))
     
-    if username == 'admin' and password == '12345':
+    elif username == 'admin' and password == '12345':
         return redirect(url_for('patient'))  # Redirect to index.html after login
     else:
         return redirect(url_for('home', error="Invalid credentials"))  # Pass error message
@@ -95,6 +110,26 @@ def get_graph():
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+TWILIO_ACCOUNT_SID = "AC4f8a9ad45e50f74d460eb475777dc4cb"
+TWILIO_AUTH_TOKEN = ""  # Replace with your actual auth token
+TWILIO_PHONE_NUMBER = "+16073676189"  # Your Twilio number
+EMERGENCY_CONTACT = "+919392733940"  # Number to send SMS
+
+@app.route('/emergency', methods=['GET'])
+def send_emergency_sms():
+    """ Sends an emergency SMS when the button is pressed. """
+    try:
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        message = client.messages.create(
+            body="🚨 EMERGENCY! Patient needs immediate attention!",
+            from_=TWILIO_PHONE_NUMBER,
+            to=EMERGENCY_CONTACT
+        )
+        return jsonify({"message": "Emergency alert sent successfully!", "sid": message.sid})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

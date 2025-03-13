@@ -19,13 +19,39 @@
         <div class="graph-container">
             <img id="graph" src="/graph" width="600">
         </div>
+
+        <div>
+            <button id="emergency_id">
+                EMERGENCY
+            </button>
+        </div>
     </div>
 
     <script>
+        let cacheIndex = 0;
+        const maxCacheSize = 3; // Rotate through 3 cache keys
+    
         function updateGraph() {
-            document.getElementById("graph").src = "/graph?" + new Date().getTime();
+            // Cycle through cache keys (0,1,2,0,1,2...)
+            cacheIndex = (cacheIndex + 1) % maxCacheSize;
+            document.getElementById("graph").src = `/graph?cache=${cacheIndex}`;
         }
+    
         setInterval(updateGraph, 2000); // Refresh graph every 2 seconds
+
+        function sendEmergencyAlert() {
+        fetch('/emergency', { method: 'GET' })  // Sends a GET request to Flask
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);  // Show success message
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Attach event listener to the button
+        document.getElementById("emergency_id").addEventListener("click", sendEmergencyAlert);
+
     </script>
+    
 </body>
 </html>

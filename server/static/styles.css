@@ -38,8 +38,10 @@ img {
 button {
     background: #bb86fc;
     color: #121212;
+    margin-top: 5px;
     border: none;
     padding: 10px 20px;
+    font-weight: bolder;
     font-size: 16px;
     cursor: pointer;
     border-radius: 5px;
@@ -47,7 +49,8 @@ button {
 }
 
 button:hover {
-    background: #9a67ea;
+
+    background: #ff0000;
 }
 
 /* Auto-refresh text */
@@ -56,3 +59,6 @@ button:hover {
     color: #bb86fc;
     margin-top: 10px;
 }
+
+
+
