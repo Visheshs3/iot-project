@@ -15,7 +15,7 @@ if not os.path.exists("static"):
     os.makedirs("static")
 
 # Connect to MongoDB
-client = MongoClient("mongodb+srv://visheshsinghal613:@cluster0.2qzfd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+client = MongoClient#(add your atlas acc)
 db = client["iot_project"]
 collection = db["patients"]
 
@@ -94,11 +94,13 @@ def add_patient():
     name = request.form['name']
     age = request.form['age']
     condition = request.form['condition']
+    password= request.form['password']
 
     collection.insert_one({
         'name': name,
         'age': age,
-        'condition': condition
+        'condition': condition,
+        'password' : password
     })
     return redirect(url_for('admin_dashboard'))
 
