@@ -1,12 +1,13 @@
 import matplotlib
 matplotlib.use('Agg')
 from pymongo import MongoClient
-from flask import Flask, render_template, send_file, make_response, request, redirect, url_for, jsonify
+from flask import Flask, render_template, send_file, make_response, request, redirect, url_for, jsonify, json
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 from bson.objectid import ObjectId
 from twilio.rest import Client
+import requests
 
 app = Flask(__name__)
 
@@ -15,31 +16,59 @@ if not os.path.exists("static"):
     os.makedirs("static")
 
 # Connect to MongoDB
-client = MongoClient#(add your atlas acc)
+client = MongoClient() # add your connection string
 db = client["iot_project"]
 collection = db["patients"]
 
 # Store last 15 values (initial values)
-spo2_values = list(95 + np.random.normal(0, 1, 15))
-pulse_values = list(75 + np.random.normal(0, 2, 15))
-temp_values = list(37 + np.random.normal(0, 0.5, 15))
+spo2_values = [0] * 15
+pulse_values = [0] * 15
+temp_values = [0] * 15
 
 TWILIO_ACCOUNT_SID = "AC4f8a9ad45e50f74d460eb475777dc4cb"
 TWILIO_AUTH_TOKEN = ""  # Replace with your actual auth token
 TWILIO_PHONE_NUMBER = "+16073676189"  # Your Twilio number
 EMERGENCY_CONTACT = "+919392733940"  # Number to send SMS
 
-def update_data():
-    global spo2_values, pulse_values, temp_values
-    spo2_values.append(95 + np.random.normal(0, 1))
-    spo2_values.pop(0)
-    pulse_values.append(75 + np.random.normal(0, 2))
-    pulse_values.pop(0)
-    temp_values.append(37 + np.random.normal(0, 0.5))
-    temp_values.pop(0)
 
-def generate_graphs():
-    update_data()
+
+#fetching latest data from om2m server
+def update_data(patient):
+    url = f"http://localhost:5089/~/in-cse/in-name/PATIENT_DATA/{patient}/la"
+    headers = {
+        "X-M2M-Origin": "admin:admin",
+        "Accept": "application/json"
+    }
+    global spo2_values, pulse_values, temp_values
+    try:
+        res = requests.get(url, headers=headers)
+        if res.status_code == 200:
+            data = res.json()
+            content = data["m2m:cin"]["con"]
+            values = content.split(",")
+            return float(values[0]), float(values[1]), float(values[2])  # SpO2, pulse, temp
+        else:
+            print("Failed to fetch from OM2M:", res.status_code)
+            return None
+    except Exception as e:
+        print("Error:", e)
+        return None
+
+
+
+def generate_graphs(patient):
+    new_data=update_data(patient)
+
+    #updating the values    
+    if new_data:
+        spo2, pulse, temp = new_data
+        spo2_values.append(spo2)
+        spo2_values.pop(0)
+        pulse_values.append(pulse)
+        pulse_values.pop(0)
+        temp_values.append(temp)
+        temp_values.pop(0)
+
     t = np.arange(-30, 0, 2)[-15:]
     fig, axs = plt.subplots(3, 1, figsize=(6, 10))
 
@@ -65,10 +94,17 @@ def generate_graphs():
     plt.savefig("static/graph.png")
     plt.close()
 
+
+
+
+
+
 # Routes
 @app.route('/')
 def home():
     return render_template('login.html')
+
+
 
 @app.route('/submit', methods=['POST'])
 def login():
@@ -80,14 +116,49 @@ def login():
 
     test_data = collection.find_one({"name": username})
     if test_data and test_data.get("password") == password:
-        return redirect(url_for('patient'))
+        return redirect(url_for('patient', patient=test_data['name']))   #sending the name as a function argument
     else:
         return redirect(url_for('home', error="Invalid credentials"))
+
+
+
 
 @app.route('/admin')
 def admin_dashboard():
     patients = list(collection.find())
     return render_template('admin_dashboard.html', patients=patients)
+
+
+
+
+@app.route('/patient/<patient>')
+def patient(patient):
+    user=collection.find_one({'name': patient})
+
+    global spo2_values,pulse_values,temp_values 
+    spo2_values = [0] * 15
+    pulse_values = [0] * 15
+    temp_values = [0] * 15
+    
+    return render_template('index.html', user=user)
+
+
+
+
+
+
+@app.route('/graph/<patient>')   #patient specific url added
+def get_graph(patient):
+    generate_graphs(patient)
+    response = make_response(send_file("static/graph.png", mimetype='image/png'))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+
+
 
 @app.route('/add_patient', methods=['POST'])
 def add_patient():
@@ -102,25 +173,57 @@ def add_patient():
         'condition': condition,
         'password' : password
     })
+
+
+    # adding on onem2m server
+    # OM2M Config
+    OM2M_BASE = "http://localhost:5089/~/in-cse/in-name/PATIENT_DATA"
+    OM2M_HEADERS_CNT = {
+        "X-M2M-Origin": "admin:admin",              # originator
+        "X-M2M-RI": "req-" + name,                  # request ID
+        "Content-Type": "application/json;ty=3"     # ty=3 for container
+    }
+
+    # Payload to create a container for this patient
+    om2m_payload = {
+        "m2m:cnt": {
+            "rn": name  # resource name = patient name
+        }
+    }
+
+    # Send to OM2M
+    om2m_res = requests.post(
+        OM2M_BASE,
+        headers=OM2M_HEADERS_CNT,
+        data=json.dumps(om2m_payload)
+    )
+
+    # Optional: Check response
+    print("OM2M Response:", om2m_res.status_code, om2m_res.text)
+
     return redirect(url_for('admin_dashboard'))
+
+
+
+
+
 
 @app.route('/delete_patient/<patient_id>', methods=['GET'])
 def delete_patient(patient_id):
+    data= collection.find_one({'_id': ObjectId(patient_id)})
+    name=data["name"]
     collection.delete_one({'_id': ObjectId(patient_id)})
+    url = f"http://localhost:5089/~/in-cse/in-name/PATIENT_DATA/{name}"
+    header ={
+        "X-M2M-Origin": "admin:admin",  
+        "X-M2M-RI": f"del{name}"
+    }
+    res = requests.delete(url, headers=header)
+    print("Delete Response:", res.status_code, res.text)
     return redirect(url_for('admin_dashboard'))
 
-@app.route('/patient')
-def patient():
-    return render_template('index.html')
 
-@app.route('/graph')
-def get_graph():
-    generate_graphs()
-    response = make_response(send_file("static/graph.png", mimetype='image/png'))
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+
 
 @app.route('/emergency', methods=['GET'])
 def send_emergency_sms():
