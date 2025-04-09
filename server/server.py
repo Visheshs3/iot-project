@@ -16,12 +16,12 @@ if not os.path.exists("static"):
     os.makedirs("static")
 
 # Connect to MongoDB
-client = MongoClient() # add your connection string
+client = MongoClient("") # add your connection string
 db = client["iot_project"]
 collection = db["patients"]
 
 # Store last 15 values (initial values)
-spo2_values = [0] * 15
+co2_values = [0] * 15
 pulse_values = [0] * 15
 temp_values = [0] * 15
 
@@ -46,7 +46,7 @@ def update_data(patient):
             data = res.json()
             content = data["m2m:cin"]["con"]
             values = content.split(",")
-            return float(values[0]), float(values[1]), float(values[2])  # SpO2, pulse, temp
+            return float(values[0]), float(values[1]), float(values[2])  # co2, present, emergency
         else:
             print("Failed to fetch from OM2M:", res.status_code)
             return None
@@ -61,41 +61,53 @@ def generate_graphs(patient):
 
     #updating the values    
     if new_data:
-        spo2, pulse, temp = new_data
-        spo2_values.append(spo2)
-        spo2_values.pop(0)
-        pulse_values.append(pulse)
-        pulse_values.pop(0)
-        temp_values.append(temp)
-        temp_values.pop(0)
+        co2, present, emergency = new_data
+        co2_values.append(co2)
+        co2_values.pop(0)
+        # pulse_values.append(pulse)
+        # pulse_values.pop(0)
+        # temp_values.append(temp)
+        # temp_values.pop(0)
+
+
+        #emergency handling
+
+        if emergency == 1:
+            try:
+                client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                message = client.messages.create(
+                    body=f"🚨 EMERGENCY! Patient '{patient}' needs immediate attention!",
+                    from_=TWILIO_PHONE_NUMBER,
+                    to=EMERGENCY_CONTACT
+                )
+                print("Emergency SMS sent:", message.sid)
+            except Exception as e:
+                print("Failed to send SMS:", e)
 
     t = np.arange(-30, 0, 2)[-15:]
     fig, axs = plt.subplots(3, 1, figsize=(6, 10))
 
-    axs[0].plot(t, spo2_values, color='blue', marker='o', label="SpO2 Level")
-    axs[0].set_title("Blood Oxygen Levels (SpO2)")
-    axs[0].set_ylabel("%")
+    axs[0].plot(t, co2_values, color='blue', marker='o', label="CO2 Level")
+    axs[0].set_title("Carbon_dioxide Levels (CO2)")
+    axs[0].set_ylabel("PPM")
     axs[0].legend()
     axs[0].grid()
 
-    axs[1].plot(t, pulse_values, color='red', marker='o', label="Pulse Rate")
-    axs[1].set_title("Pulse Rate")
-    axs[1].set_ylabel("BPM")
-    axs[1].legend()
-    axs[1].grid()
+    # axs[1].plot(t, pulse_values, color='red', marker='o', label="Pulse Rate")
+    # axs[1].set_title("Pulse Rate")
+    # axs[1].set_ylabel("BPM")
+    # axs[1].legend()
+    # axs[1].grid()
 
-    axs[2].plot(t, temp_values, color='green', marker='o', label="Body Temperature")
-    axs[2].set_title("Body Temperature")
-    axs[2].set_ylabel("°C")
-    axs[2].legend()
-    axs[2].grid()
+    # axs[2].plot(t, temp_values, color='green', marker='o', label="Body Temperature")
+    # axs[2].set_title("Body Temperature")
+    # axs[2].set_ylabel("°C")
+    # axs[2].legend()
+    # axs[2].grid()
 
     plt.tight_layout()
     plt.savefig("static/graph.png")
     plt.close()
-
-
-
 
 
 
@@ -135,8 +147,8 @@ def admin_dashboard():
 def patient(patient):
     user=collection.find_one({'name': patient})
 
-    global spo2_values,pulse_values,temp_values 
-    spo2_values = [0] * 15
+    global co2_values,pulse_values,temp_values 
+    co2_values = [0] * 15
     pulse_values = [0] * 15
     temp_values = [0] * 15
     
