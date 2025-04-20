@@ -8,12 +8,13 @@ const char* ssid = "LAPTOP-KN9U1S5D 5942";
 const char* password = "mewcat14";
 
 // OM2M server details
-const char* server_url = "http://192.168.137.1:5089/~/in-cse/in-name/PATIENT_DATA/Vishesh";
+const char* server_url = "http://192.168.137.1:5089/~/in-cse/in-name/PATIENT_DATA/Vishesh/sensor1";
 
 // OM2M headers
 const char* origin = "admin:admin";  // OM2M AE-ID or Admin
 const char* content_type = "application/json;ty=4"; // ty=4 means contentInstance
 
+const int buzzer = 19;
 
 const int mq135Pin = 34;  // ADC input
 
@@ -39,7 +40,7 @@ void setup() {
   // Pin setup
   pinMode(irSensorPin, INPUT);
   pinMode(mq135Pin, INPUT);
-  
+  pinMode(buzzer, OUTPUT);
   // Connect to WiFi
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
@@ -102,6 +103,12 @@ void loop() {
 
     if(count == 10){
       HTTPClient http;
+      if(!capacitivetouch){
+        digitalWrite(buzzer, LOW);
+      }
+      if(capacitivetouch){
+        digitalWrite(buzzer,HIGH);
+      }
       String data = String(co2avg) + "," + String(present) + "," + String(capacitivetouch);
       count = 0;
       co2avg = 400;
