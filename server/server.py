@@ -8,6 +8,7 @@ import os
 from bson.objectid import ObjectId
 from twilio.rest import Client
 import requests
+import random
 
 app = Flask(__name__)
 
@@ -16,20 +17,20 @@ if not os.path.exists("static"):
     os.makedirs("static")
 
 # Connect to MongoDB
-client = MongoClient("mongodb+srv://visheshsinghal613:@cluster0.2qzfd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0") # add your connection string
+client = MongoClient("mongodb+srv://username:password@cluster0.2qzfd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0") # add your connection string
 db = client["iot_project"]
 collection = db["patients"]
 
-# Store last 15 values (initial values)
-co2_values = [0] * 15
-pulse_values = [0] * 15
-temp_values = [0] * 15
-spo2_values = [0] * 15  # Added SPO2 values array
+# initial values to have a good scale    
+co2_values = [random.randint(250, 350) for _ in range(15)]
+pulse_values = [random.randint(80, 100) for _ in range(15)]
+temp_values = [round(random.uniform(32, 35), 2) for _ in range(15)]
+spo2_values = [round(random.uniform(96, 99), 2) for _ in range(15)]
 
-TWILIO_ACCOUNT_SID = "AC4f8a9ad45e50f74d460eb475777dc4cb"
-TWILIO_AUTH_TOKEN = "68bae5c21d9c95e7cef26fd6196cf366"  # Replace with your actual auth token
-TWILIO_PHONE_NUMBER = "+16073676189"  # Your Twilio number
-EMERGENCY_CONTACT = "+918750077076"  # Number to send SMS
+TWILIO_ACCOUNT_SID = "" #acc sid
+TWILIO_AUTH_TOKEN = ""  # auth token
+TWILIO_PHONE_NUMBER = ""  # Your Twilio number
+EMERGENCY_CONTACT = ""  # Number to send SMS
 
 #fetching latest data from om2m server
 def update_data(patient):
@@ -212,10 +213,12 @@ def patient(patient):
     user=collection.find_one({'name': patient})
 
     global co2_values, pulse_values, temp_values, spo2_values
-    co2_values = [0] * 15
-    pulse_values = [0] * 15
-    temp_values = [0] * 15
-    spo2_values = [0] * 15  # Reset SPO2 values
+    
+    # starting random data to scale the graph
+    co2_values = [random.randint(250, 350) for _ in range(15)]
+    pulse_values = [random.randint(80, 100) for _ in range(15)]
+    temp_values = [round(random.uniform(32, 35), 2) for _ in range(15)]
+    spo2_values = [round(random.uniform(96, 99), 2) for _ in range(15)]
     
     return render_template('index.html', user=user)
 
@@ -234,12 +237,14 @@ def add_patient():
     age = request.form['age']
     condition = request.form['condition']
     password= request.form['password']
+    number = request.form['emergencyN']
 
     collection.insert_one({
         'name': name,
         'age': age,
         'condition': condition,
-        'password' : password
+        'password' : password,
+        'number' : number
     })
 
     # adding on onem2m server
